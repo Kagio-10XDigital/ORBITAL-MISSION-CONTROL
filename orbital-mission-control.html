@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbital Mission Control Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0d14; --panel:#0f141e; --panel-2:#131926; --panel-3:#10151f;
+    --border:#1e2533; --border-2:#2a3446;
+    --text:#e8ebf2; --muted:#7e8aa0; --muted-2:#525d72;
+    --cyan:#4f8cff; --teal:#36c6b0; --green:#3fb27f;
+    --amber:#e0a23c; --red:#e24a5d; --violet:#8a7dff;
+    --r:8px;
+    --mono:'IBM Plex Mono',monospace; --disp:'IBM Plex Sans',sans-serif; --body:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--body); color:var(--text); background:var(--bg);
+    background-image:linear-gradient(rgba(255,255,255,.013) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px),
+                     radial-gradient(900px 500px at 85% -5%, rgba(79,140,255,.06), transparent 60%);
+    background-size:46px 46px,46px 46px,100% 100%;
+    overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+  #stars{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+  .mono{font-family:var(--mono)} .disp{font-family:var(--disp)}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  .hidden{display:none!important}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* ---------- LOGIN ---------- */
+  #login{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center}
+  .login-card{width:392px;max-width:92vw;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+    padding:36px 34px;position:relative;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  .login-card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r) var(--r) 0 0;
+    background:linear-gradient(90deg,var(--cyan),transparent 70%)}
+  .badge-logo{display:flex;align-items:center;gap:12px;margin-bottom:30px}
+  .badge-logo .mark{width:36px;height:36px;border:1px solid var(--cyan);border-radius:7px;position:relative;flex:none}
+  .badge-logo .mark::before{content:"";position:absolute;inset:8px;border:1px solid var(--cyan);border-radius:50%;opacity:.6}
+  .badge-logo .mark::after{content:"";position:absolute;width:5px;height:5px;background:var(--cyan);border-radius:50%;top:7px;left:50%;transform:translateX(-50%)}
+  .badge-logo b{font-size:13px;letter-spacing:1.5px;font-weight:600}
+  .badge-logo span{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:2px}
+  .login-card h1{font-size:21px;font-weight:600;margin-bottom:6px;letter-spacing:-.2px}
+  .login-card>p{color:var(--muted);font-size:13px;margin-bottom:26px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+  .field input{width:100%;background:#0a0e16;border:1px solid var(--border);border-radius:6px;
+    padding:12px 14px;color:var(--text);font-family:var(--mono);font-size:14px;outline:none;transition:border-color .15s}
+  .field input:focus{border-color:var(--cyan)}
+  .btn-primary{width:100%;background:var(--cyan);color:#06101f;font-weight:600;letter-spacing:.3px;
+    padding:13px;border-radius:6px;font-size:14px;transition:filter .15s,transform .08s;margin-top:6px}
+  .btn-primary:hover{filter:brightness(1.07)} .btn-primary:active{transform:translateY(1px)}
+  .login-foot{margin-top:20px;padding-top:18px;border-top:1px solid var(--border);text-align:center;
+    font-family:var(--mono);font-size:10.5px;color:var(--muted-2);letter-spacing:1px}
+
+  /* ---------- APP SHELL ---------- */
+  #app{position:relative;z-index:5;height:100vh;display:grid;grid-template-columns:240px 1fr;grid-template-rows:58px 1fr}
+  .topbar{grid-column:1/3;display:flex;align-items:center;gap:20px;padding:0 22px;
+    border-bottom:1px solid var(--border);background:rgba(12,16,25,.85);backdrop-filter:blur(6px);position:relative}
+  .topbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,var(--cyan),transparent 40%);opacity:.4}
+  .topbar .brand{display:flex;align-items:center;gap:11px;font-weight:600;letter-spacing:.5px;font-size:13px}
+  .topbar .mark{width:24px;height:24px;border:1px solid var(--cyan);border-radius:5px;position:relative;flex:none}
+  .topbar .mark::after{content:"";position:absolute;inset:6px;border:1px solid var(--cyan);border-radius:50%;opacity:.7}
+  .mission-pill{display:flex;align-items:center;gap:9px;background:var(--panel-2);border:1px solid var(--border);
+    padding:5px 13px;border-radius:5px;font-family:var(--mono);font-size:11.5px;letter-spacing:.5px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2.4s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .topbar .clock{margin-left:auto;text-align:right}
+  .topbar .clock small{display:block;font-family:var(--mono);font-size:9.5px;color:var(--muted-2);letter-spacing:1.5px;margin-bottom:1px}
+  .topbar .clock span{font-family:var(--mono);font-size:15px;color:var(--text);letter-spacing:1px}
+  .topbar .user{display:flex;align-items:center;gap:10px;padding-left:20px;border-left:1px solid var(--border)}
+  .avatar{width:30px;height:30px;border-radius:6px;background:var(--panel-2);border:1px solid var(--border-2);
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:600;font-size:11px;color:var(--cyan)}
+  .user .meta b{font-size:12px;display:block;font-weight:600} .user .meta span{font-size:10.5px;color:var(--muted)}
+
+  .sidebar{border-right:1px solid var(--border);background:rgba(12,16,25,.6);padding:14px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+  .nav-group{font-family:var(--mono);font-size:9.5px;letter-spacing:1.8px;color:var(--muted-2);text-transform:uppercase;margin:16px 12px 7px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:6px;color:var(--muted);
+    font-size:13.5px;font-weight:500;transition:.13s;width:100%;text-align:left;position:relative}
+  .nav-item svg{width:16px;height:16px;flex:none;opacity:.8}
+  .nav-item:hover{background:var(--panel-2);color:var(--text)}
+  .nav-item.active{background:var(--panel-2);color:var(--text)}
+  .nav-item.active::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:2px;background:var(--cyan);border-radius:2px}
+  .nav-item.active svg{opacity:1;color:var(--cyan)}
+  .nav-badge{margin-left:auto;background:rgba(226,74,93,.15);color:var(--red);font-family:var(--mono);font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px}
+  .nav-spacer{flex:1}
+
+  .main{overflow-y:auto;padding:24px 28px 60px;position:relative}
+  .screen{display:none;animation:fade .3s ease}
+  .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+  .page-head h2{font-size:23px;font-weight:600;letter-spacing:-.3px}
+  .page-head .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .page-head .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;margin-bottom:5px}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+  .panel h3{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:9px;letter-spacing:.2px}
+  .panel h3::before{content:"";width:3px;height:13px;background:var(--cyan);border-radius:2px;opacity:.8}
+  .panel h3 .tag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted-2);font-weight:400;letter-spacing:1px}
+  .grid{display:grid;gap:14px}
+  .g-kpi{grid-template-columns:repeat(6,1fr)}
+  .g-2-1{grid-template-columns:1.65fr 1fr}
+  .g-2{grid-template-columns:1fr 1fr} .g-3{grid-template-columns:repeat(3,1fr)} .g-4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1100px){.g-kpi{grid-template-columns:repeat(3,1fr)}.g-2-1,.g-2,.g-3,.g-4{grid-template-columns:1fr 1fr}}
+
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:15px;position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;top:0;left:0;width:100%;height:2px;background:var(--green);opacity:.5}
+  .kpi.warn::before{background:var(--amber)} .kpi.crit::before{background:var(--red)}
+  .kpi .lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase}
+  .kpi .val{font-family:var(--mono);font-size:23px;font-weight:600;margin:9px 0 3px;letter-spacing:-.5px}
+  .kpi .val u{font-size:11px;color:var(--muted);font-weight:400;text-decoration:none;margin-left:3px}
+  .kpi .trend{font-family:var(--mono);font-size:10.5px} .up{color:var(--green)} .down{color:var(--red)}
+
+  .statusbadge{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.6px;padding:3px 9px;border-radius:4px;text-transform:uppercase;border:1px solid transparent}
+  .s-nom{color:var(--green);background:rgba(63,178,127,.1);border-color:rgba(63,178,127,.25)}
+  .s-warn{color:var(--amber);background:rgba(224,162,60,.1);border-color:rgba(224,162,60,.28)}
+  .s-crit{color:var(--red);background:rgba(226,74,93,.1);border-color:rgba(226,74,93,.3)}
+  .s-info{color:var(--cyan);background:rgba(79,140,255,.1);border-color:rgba(79,140,255,.28)}
+
+  .sub-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+  .sub-row:last-child{border-bottom:none}
+  .sub-row .nm{font-size:13px;font-weight:500} .sub-row .nm small{display:block;color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:1px}
+  .bar{flex:1;height:4px;background:#0a0e16;border-radius:2px;overflow:hidden;max-width:130px;margin-left:auto}
+  .bar i{display:block;height:100%;border-radius:2px;background:var(--cyan)}
+
+  .alert{display:flex;gap:14px;padding:15px 16px;border-radius:var(--r);border:1px solid var(--border);background:var(--panel);margin-bottom:11px;align-items:flex-start}
+  .alert .stripe{width:3px;align-self:stretch;border-radius:2px}
+  .alert.crit .stripe{background:var(--red)} .alert.high .stripe{background:var(--amber)}
+  .alert.med .stripe{background:var(--cyan)} .alert.low .stripe{background:var(--muted-2)}
+  .alert .body{flex:1}
+  .alert .top{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap}
+  .alert .msg{font-weight:600;font-size:13.5px} .alert .desc{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.5}
+  .alert .ts{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-left:auto}
+  .filterbar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11.5px;padding:7px 14px;border-radius:5px;border:1px solid var(--border);color:var(--muted);transition:.13s}
+  .chip:hover{border-color:var(--border-2);color:var(--text)}
+  .chip.active{border-color:var(--cyan);color:var(--cyan);background:rgba(79,140,255,.07)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;
+    padding:10px 12px;border-bottom:1px solid var(--border);font-weight:500}
+  td{padding:11px 12px;border-bottom:1px solid var(--border)} tr:last-child td{border-bottom:none}
+  td .mono{font-size:12.5px}
+  .row-link{cursor:pointer} .row-link:hover td{background:var(--panel-2)}
+
+  .sensor{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:15px;cursor:pointer;transition:.13s}
+  .sensor:hover{border-color:var(--cyan)}
+  .sensor .nm{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase}
+  .sensor .v{font-family:var(--mono);font-size:21px;font-weight:600;margin:7px 0;letter-spacing:-.5px}
+  .spark{height:32px;width:100%}
+
+  .gauge-wrap{text-align:center} .gauge-wrap canvas{max-height:128px}
+  .gauge-val{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:-76px;margin-bottom:50px;position:relative}
+  .reco{display:flex;gap:13px;padding:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--panel);margin-bottom:11px}
+  .reco .ic{width:32px;height:32px;border-radius:6px;background:rgba(138,125,255,.1);color:var(--violet);
+    border:1px solid rgba(138,125,255,.25);display:flex;align-items:center;justify-content:center;flex:none}
+
+  .cmd-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  select,.cmd-grid input{width:100%;background:#0a0e16;border:1px solid var(--border);border-radius:6px;
+    padding:11px 13px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none}
+  select:focus,.cmd-grid input:focus{border-color:var(--cyan)}
+  #cmdParam{width:100%;background:#0a0e16;border:1px solid var(--border-2);border-left:2px solid var(--cyan);
+    border-radius:6px;padding:11px 13px;color:var(--cyan);font-family:var(--mono);font-size:13px;letter-spacing:.5px;outline:none;transition:.15s}
+  #cmdParam:focus{border-color:var(--cyan);background:#0c1019}
+  #cmdParam::placeholder{color:var(--muted-2);letter-spacing:0}
+  .cmd-log{font-family:var(--mono);font-size:12px;background:#080b12;border:1px solid var(--border);border-radius:var(--r);
+    padding:14px;height:236px;overflow-y:auto;line-height:1.95}
+  .cmd-log .t{color:var(--muted-2)} .cmd-log .ok{color:var(--green)} .cmd-log .w{color:var(--amber)}
+  .btn-send{background:var(--cyan);color:#06101f;font-weight:600;padding:8px 15px;border-radius:6px;letter-spacing:.3px;font-size:12px;display:inline-flex;align-items:center;gap:7px}
+  .btn-send svg{width:14px;height:14px}
+  .btn-send:hover{filter:brightness(1.07)}
+  .btn-ghost{border:1px solid var(--border-2);color:var(--text);padding:9px 16px;border-radius:6px;font-size:13px;font-weight:500}
+  .btn-ghost:hover{background:var(--panel-2)}
+
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+  .toggle:last-child{border-bottom:none}
+  .toggle .nm{font-size:13.5px;font-weight:500} .toggle .nm small{display:block;color:var(--muted);font-size:11.5px;font-weight:400;margin-top:2px}
+  .sw{width:40px;height:22px;border-radius:4px;background:#161c27;border:1px solid var(--border-2);position:relative;transition:.2s;flex:none;cursor:pointer}
+  .sw i{position:absolute;width:14px;height:14px;border-radius:3px;background:var(--muted);top:3px;left:3px;transition:.2s}
+  .sw.on{background:rgba(79,140,255,.18);border-color:var(--cyan)} .sw.on i{left:21px;background:var(--cyan)}
+
+  .orbit-svg{width:100%;height:236px;display:block}
+  .grid-line{stroke:var(--border);stroke-width:1}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:7px} .legend i{width:8px;height:8px;display:inline-block}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#212a3a;border-radius:5px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="login-card">
+    <div class="badge-logo">
+      <div class="mark"></div>
+      <div><b>ORBITAL MISSION CONTROL</b><span>CENTRO DE CONTROLE · ARTEMIS-VII</span></div>
+    </div>
+    <h1>Acesso ao centro de controle</h1>
+    <p>Autenticação restrita a pessoal de missão autorizado.</p>
+    <div class="field"><label>Identificação do operador</label><input type="text" value="op.ramos" autocomplete="off"></div>
+    <div class="field"><label>Chave de acesso</label><input type="password" value="••••••••"></div>
+    <button class="btn-primary" onclick="enterApp()">Iniciar sessão</button>
+    <div class="login-foot">SESSÃO SEGURA · TLS 1.3 · NÍVEL DE ACESSO 3</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="brand"><div class="mark"></div>ORBITAL MISSION CONTROL</div>
+    <div class="mission-pill"><span class="dot"></span> ARTEMIS-VII · <b style="color:var(--green)">NOMINAL</b></div>
+    <div class="clock"><small>MISSION ELAPSED TIME</small><span id="met">T+ 00:00:00</span></div>
+    <div class="user">
+      <div class="avatar">HR</div>
+      <div class="meta"><b>H. Ramos</b><span>Operador de missão</span></div>
+    </div>
+  </div>
+
+  <nav class="sidebar">
+    <div class="nav-group">Operações</div>
+    <button class="nav-item active" data-s="dashboard">${ic('grid')} Dashboard</button>
+    <button class="nav-item" data-s="alerts">${ic('alert')} Alertas críticos <span class="nav-badge" id="alertCount">3</span></button>
+    <button class="nav-item" data-s="telemetry">${ic('wave')} Telemetria</button>
+    <button class="nav-item" data-s="sensor">${ic('chip')} Detalhe de sensor</button>
+    <div class="nav-group">Inteligência</div>
+    <button class="nav-item" data-s="predictive">${ic('brain')} Análise preditiva</button>
+    <button class="nav-item" data-s="reports">${ic('doc')} Relatórios de falha</button>
+    <div class="nav-group">Comando</div>
+    <button class="nav-item" data-s="commands">${ic('send')} Console de comandos</button>
+    <button class="nav-item" data-s="settings">${ic('gear')} Configurações</button>
+    <div class="nav-spacer"></div>
+    <button class="nav-item" onclick="logout()">${ic('power')} Encerrar sessão</button>
+  </nav>
+
+  <main class="main">
+    <!-- ===== DASHBOARD ===== -->
+    <section class="screen active" id="dashboard">
+      <div class="page-head">
+        <div><div class="eyebrow">Visão geral · SYS-00</div><h2>Dashboard de controle</h2></div>
+        <div class="statusbadge s-nom">Todos os sistemas operacionais</div>
+      </div>
+      <div class="grid g-kpi" id="kpis"></div>
+      <div class="grid g-2-1" style="margin-top:14px">
+        <div class="panel">
+          <h3>Trajetória orbital <span class="tag" id="orbitTag">LEO · 412 KM · INC 51.6°</span></h3>
+          <svg class="orbit-svg" viewBox="0 0 600 236" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <radialGradient id="earthG" cx="42%" cy="38%" r="65%">
+                <stop offset="0%" stop-color="#27406e"/><stop offset="55%" stop-color="#16294a"/><stop offset="100%" stop-color="#0d1830"/>
+              </radialGradient>
+            </defs>
+            <!-- coordinate grid -->
+            <g opacity="0.5">
+              <line class="grid-line" x1="0" y1="59" x2="600" y2="59"/>
+              <line class="grid-line" x1="0" y1="118" x2="600" y2="118"/>
+              <line class="grid-line" x1="0" y1="177" x2="600" y2="177"/>
+              <line class="grid-line" x1="150" y1="0" x2="150" y2="236"/>
+              <line class="grid-line" x1="300" y1="0" x2="300" y2="236"/>
+              <line class="grid-line" x1="450" y1="0" x2="450" y2="236"/>
+            </g>
+            <!-- orbit path -->
+            <ellipse cx="300" cy="118" rx="252" ry="82" fill="none" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="3 5"/>
+            <!-- earth -->
+            <circle cx="300" cy="118" r="40" fill="url(#earthG)" stroke="rgba(79,140,255,.3)" stroke-width="1"/>
+            <ellipse cx="300" cy="118" rx="40" ry="14" fill="none" stroke="rgba(79,140,255,.18)" stroke-width="1"/>
+            <ellipse cx="300" cy="118" rx="14" ry="40" fill="none" stroke="rgba(79,140,255,.18)" stroke-width="1"/>
+            <!-- satellite marker -->
+            <g id="sat">
+              <line x1="-9" y1="0" x2="9" y2="0" stroke="var(--cyan)" stroke-width="1" opacity=".5"/>
+              <line x1="0" y1="-9" x2="0" y2="9" stroke="var(--cyan)" stroke-width="1" opacity=".5"/>
+              <rect x="-4" y="-4" width="8" height="8" fill="var(--cyan)"/>
+            </g>
+            <!-- mono labels -->
+            <text x="14" y="22" fill="var(--muted)" font-family="IBM Plex Mono" font-size="10">VEL 7.66 km/s</text>
+            <text x="14" y="222" fill="var(--muted)" font-family="IBM Plex Mono" font-size="10">PER 92.7 min</text>
+            <text x="498" y="222" fill="var(--muted)" font-family="IBM Plex Mono" font-size="10">APOGEU 414 km</text>
+          </svg>
+          <div class="legend">
+            <span><i style="background:var(--cyan)"></i> ARTEMIS-VII</span>
+            <span><i style="background:#27406e"></i> Terra</span>
+            <span><i style="background:var(--border-2)"></i> Órbita planejada</span>
+          </div>
+        </div>
+        <div class="panel"><h3>Estado dos subsistemas</h3><div id="subsysList"></div></div>
+      </div>
+      <div class="grid g-2-1" style="margin-top:14px">
+        <div class="panel"><h3>Telemetria · energia &amp; temperatura <span class="tag">ÚLTIMOS 60s</span></h3><canvas id="dashChart" height="88"></canvas></div>
+        <div class="panel"><h3>Alertas recentes</h3><div id="dashAlerts"></div></div>
+      </div>
+    </section>
+
+    <!-- ===== ALERTS ===== -->
+    <section class="screen" id="alerts">
+      <div class="page-head">
+        <div><div class="eyebrow">Eventos operacionais · SYS-02</div><h2>Alertas críticos</h2>
+          <div class="sub">Classificados por nível de severidade · atualização contínua</div></div>
+      </div>
+      <div class="filterbar" id="alertFilter">
+        <button class="chip active" data-f="all">Todos</button>
+        <button class="chip" data-f="crit">Crítico</button>
+        <button class="chip" data-f="high">Alto</button>
+        <button class="chip" data-f="med">Médio</button>
+        <button class="chip" data-f="low">Baixo</button>
+      </div>
+      <div id="alertList"></div>
+    </section>
+
+    <!-- ===== TELEMETRY ===== -->
+    <section class="screen" id="telemetry">
+      <div class="page-head">
+        <div><div class="eyebrow">Sensores &amp; módulos · SYS-03</div><h2>Telemetria em tempo real</h2>
+          <div class="sub">Selecione um sensor para ver o detalhe e o histórico</div></div>
+        <div class="statusbadge s-info" id="sensorClock">SYNC OK · 247 CANAIS</div>
+      </div>
+      <div class="grid g-4" id="sensorGrid"></div>
+      <div class="grid g-2" style="margin-top:14px">
+        <div class="panel"><h3>Temperatura do núcleo <span class="tag">°C</span></h3><canvas id="tempChart" height="118"></canvas></div>
+        <div class="panel"><h3>Consumo de energia <span class="tag">kW</span></h3><canvas id="powChart" height="118"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===== SENSOR DETAIL ===== -->
+    <section class="screen" id="sensor">
+      <div class="page-head">
+        <div><div class="eyebrow">Detalhe · SENSOR-04</div><h2 id="senTitle">Reator · temperatura do núcleo</h2>
+          <div class="sub">Frequência de amostragem 1 Hz · módulo de propulsão</div></div>
+        <button class="btn-ghost" onclick="go('telemetry')">← Voltar à telemetria</button>
+      </div>
+      <div class="grid g-2-1">
+        <div class="panel"><h3>Histórico <span class="tag">TEMPO REAL</span></h3><canvas id="senChart" height="150"></canvas></div>
+        <div class="panel"><h3>Indicadores</h3>
+          <div class="grid" style="grid-template-columns:1fr 1fr">
+            <div class="kpi"><div class="lbl">Atual</div><div class="val" id="senNow">847<u>°C</u></div></div>
+            <div class="kpi"><div class="lbl">Limite</div><div class="val">950<u>°C</u></div></div>
+            <div class="kpi"><div class="lbl">Mínimo 24h</div><div class="val">812<u>°C</u></div></div>
+            <div class="kpi"><div class="lbl">Máximo 24h</div><div class="val">901<u>°C</u></div></div>
+          </div>
+          <div class="statusbadge s-nom" style="margin-top:14px;display:inline-block">Dentro da faixa nominal</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px"><h3>Registro de leituras</h3>
+        <table id="senTable"><thead><tr><th>Timestamp</th><th>Leitura</th><th>Δ</th><th>Status</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- ===== PREDICTIVE ===== -->
+    <section class="screen" id="predictive">
+      <div class="page-head">
+        <div><div class="eyebrow">IA de bordo · SYS-05</div><h2>Análise preditiva de falhas</h2>
+          <div class="sub">Probabilidade de falha por subsistema nas próximas 24h</div></div>
+        <div class="statusbadge s-info">MODELO v3.2 · CONFIANÇA 94%</div>
+      </div>
+      <div class="grid g-4">
+        <div class="panel gauge-wrap"><h3 style="justify-content:center">Propulsão</h3><canvas id="gauge1"></canvas><div class="gauge-val" style="color:var(--green)">8%</div></div>
+        <div class="panel gauge-wrap"><h3 style="justify-content:center">Energia</h3><canvas id="gauge2"></canvas><div class="gauge-val" style="color:var(--amber)">34%</div></div>
+        <div class="panel gauge-wrap"><h3 style="justify-content:center">Comunicação</h3><canvas id="gauge3"></canvas><div class="gauge-val" style="color:var(--green)">5%</div></div>
+        <div class="panel gauge-wrap"><h3 style="justify-content:center">Suporte de vida</h3><canvas id="gauge4"></canvas><div class="gauge-val" style="color:var(--green)">3%</div></div>
+      </div>
+      <div class="grid g-2" style="margin-top:14px">
+        <div class="panel"><h3>Predições do modelo</h3>
+          <table><thead><tr><th>Subsistema</th><th>Falha prevista</th><th>ETA</th><th>Confiança</th></tr></thead><tbody>
+            <tr><td>Banco de baterias B</td><td><span class="statusbadge s-warn">Degradação de célula</span></td><td class="mono">~18h</td><td class="mono">87%</td></tr>
+            <tr><td>Painel solar 2</td><td><span class="statusbadge s-warn">Queda de eficiência</span></td><td class="mono">~31h</td><td class="mono">72%</td></tr>
+            <tr><td>Giroscópio Z</td><td><span class="statusbadge s-info">Drift de calibração</span></td><td class="mono">~52h</td><td class="mono">64%</td></tr>
+          </tbody></table>
+        </div>
+        <div class="panel"><h3>Recomendações da IA</h3>
+          <div class="reco"><div class="ic">${ic('brain')}</div><div><b style="font-size:13px">Redistribuir carga energética</b>
+            <div style="color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.5">Transferir 12% da carga do banco B para o banco A reduz a probabilidade de falha de 34% para 9%.</div></div></div>
+          <div class="reco"><div class="ic">${ic('brain')}</div><div><b style="font-size:13px">Agendar recalibração do giroscópio</b>
+            <div style="color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.5">Janela ideal em T+ 06:20, durante passagem sobre estação de solo.</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== REPORTS ===== -->
+    <section class="screen" id="reports">
+      <div class="page-head">
+        <div><div class="eyebrow">Histórico operacional · SYS-06</div><h2>Relatórios de falha</h2>
+          <div class="sub">Incidentes registrados e ações corretivas</div></div>
+        <button class="btn-ghost" onclick="toast('Relatório exportado (.csv)')">${ic('doc')} Exportar CSV</button>
+      </div>
+      <div class="panel">
+        <table><thead><tr><th>ID</th><th>Data / hora</th><th>Subsistema</th><th>Severidade</th><th>Descrição</th><th>Status</th></tr></thead><tbody>
+          <tr><td class="mono">#1042</td><td class="mono">T+ 02:14:08</td><td>Energia</td><td><span class="statusbadge s-crit">Crítico</span></td><td>Queda de tensão no barramento principal</td><td><span class="statusbadge s-nom">Resolvido</span></td></tr>
+          <tr><td class="mono">#1041</td><td class="mono">T+ 01:47:33</td><td>Comunicação</td><td><span class="statusbadge s-warn">Alto</span></td><td>Perda de sinal com estação de solo (38s)</td><td><span class="statusbadge s-nom">Resolvido</span></td></tr>
+          <tr><td class="mono">#1040</td><td class="mono">T+ 01:02:11</td><td>Propulsão</td><td><span class="statusbadge s-info">Médio</span></td><td>Variação de temperatura acima da média</td><td><span class="statusbadge s-warn">Monitorando</span></td></tr>
+          <tr><td class="mono">#1039</td><td class="mono">T+ 00:38:50</td><td>Navegação</td><td><span class="statusbadge s-info">Baixo</span></td><td>Drift de calibração do giroscópio Z</td><td><span class="statusbadge s-warn">Monitorando</span></td></tr>
+          <tr><td class="mono">#1038</td><td class="mono">T+ 00:11:22</td><td>Suporte de vida</td><td><span class="statusbadge s-info">Baixo</span></td><td>Ajuste de umidade da cabine</td><td><span class="statusbadge s-nom">Resolvido</span></td></tr>
+        </tbody></table>
+      </div>
+    </section>
+
+    <!-- ===== COMMANDS ===== -->
+    <section class="screen" id="commands">
+      <div class="page-head">
+        <div><div class="eyebrow">Envio de comandos · SYS-07</div><h2>Console de comandos</h2>
+          <div class="sub">Comandos transmitidos aos módulos da espaçonave</div></div>
+        <div class="statusbadge s-nom">UPLINK ATIVO</div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel"><h3>Novo comando</h3>
+          <div class="cmd-grid" style="margin-bottom:14px">
+            <div><label style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px">MÓDULO ALVO</label>
+              <select id="cmdMod" style="margin-top:7px"><option>Propulsão</option><option>Energia</option><option>Comunicação</option><option>Suporte de vida</option><option>Navegação</option></select></div>
+            <div><label style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px">COMANDO</label>
+              <select id="cmdCmd" style="margin-top:7px"><option>Ajustar orientação</option><option>Reiniciar módulo</option><option>Calibrar sensor</option><option>Transferir carga</option><option>Ativar modo seguro</option></select></div>
+          </div>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px">PARÂMETRO</label>
+          <input id="cmdParam" style="margin:7px 0 16px" placeholder="ex: +2.5°" value="+2.5°">
+          <button class="btn-send" onclick="sendCmd()">${ic('send')} Transmitir comando</button>
+        </div>
+        <div class="panel"><h3>Log de transmissão <span class="tag">DOWNLINK</span></h3><div class="cmd-log" id="cmdLog"></div></div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS ===== -->
+    <section class="screen" id="settings">
+      <div class="page-head">
+        <div><div class="eyebrow">Administração · SYS-08</div><h2>Configurações</h2>
+          <div class="sub">Usuários, permissões e parâmetros do sistema</div></div>
+      </div>
+      <div class="grid g-2-1">
+        <div class="panel"><h3>Equipe de missão</h3>
+          <table><thead><tr><th>Operador</th><th>Função</th><th>Nível</th><th>Status</th></tr></thead><tbody>
+            <tr><td>H. Ramos</td><td>Operador de missão</td><td class="mono">3</td><td><span class="statusbadge s-nom">Online</span></td></tr>
+            <tr><td>J. Silva</td><td>Engenheiro de sistemas</td><td class="mono">3</td><td><span class="statusbadge s-nom">Online</span></td></tr>
+            <tr><td>M. Souza</td><td>Analista de telemetria</td><td class="mono">2</td><td><span class="statusbadge s-warn">Ausente</span></td></tr>
+            <tr><td>IA-BORDO</td><td>Agente autônomo</td><td class="mono">4</td><td><span class="statusbadge s-info">Ativo</span></td></tr>
+          </tbody></table>
+        </div>
+        <div class="panel"><h3>Preferências</h3>
+          <div class="toggle"><div class="nm">Alertas sonoros<small>Notificação audível para eventos críticos</small></div><div class="sw on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="toggle"><div class="nm">Análise preditiva automática<small>IA roda a cada 5 min</small></div><div class="sw on" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="toggle"><div class="nm">Modo de alto contraste<small>Acessibilidade visual</small></div><div class="sw" onclick="this.classList.toggle('on')"><i></i></div></div>
+          <div class="toggle"><div class="nm">Confirmar comandos críticos<small>Dupla verificação antes de transmitir</small></div><div class="sw on" onclick="this.classList.toggle('on')"><i></i></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" style="position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel-2);border:1px solid var(--border-2);padding:12px 22px;border-radius:6px;
+  font-family:var(--mono);font-size:12.5px;z-index:50;opacity:0;transition:.3s;pointer-events:none"></div>
+
+<script>
+function ic(n){const p={
+  grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  alert:'M12 2 1 21h22zM12 9v5M12 17v.5',
+  wave:'M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0',
+  chip:'M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3M6 6h12v12H6z',
+  brain:'M9 3a3 3 0 0 0-3 3 3 3 0 0 0-1 5 3 3 0 0 0 1 5 3 3 0 0 0 3 3M15 3a3 3 0 0 1 3 3 3 3 0 0 1 1 5 3 3 0 0 1-1 5 3 3 0 0 1-3 3M9 3v18M15 3v18',
+  doc:'M6 2h8l4 4v16H6zM14 2v4h4',
+  send:'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  gear:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3M12 19v3M5 5l2 2M17 17l2 2M2 12h3M19 12h3M5 19l2-2M17 7l2-2',
+  power:'M12 3v9M6.4 6.4a8 8 0 1 0 11.2 0'};
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="'+p[n]+'"/></svg>';}
+(function(){const app=document.getElementById('app');app.innerHTML=app.innerHTML.replace(/\$\{ic\('(\w+)'\)\}/g,(m,n)=>ic(n));})();
+
+/* starfield (subtle) */
+const sc=document.getElementById('stars'),sx=sc.getContext('2d');let stars=[];
+function initStars(){sc.width=innerWidth;sc.height=innerHeight;stars=[];
+  for(let i=0;i<90;i++)stars.push({x:Math.random()*sc.width,y:Math.random()*sc.height,r:Math.random()*1,a:Math.random(),s:Math.random()*.008});}
+function drawStars(){sx.clearRect(0,0,sc.width,sc.height);
+  for(const st of stars){st.a+=st.s;const o=.2+Math.abs(Math.sin(st.a))*.3;
+    sx.fillStyle='rgba(160,185,225,'+o+')';sx.fillRect(st.x,st.y,st.r,st.r);}
+  requestAnimationFrame(drawStars);}
+initStars();drawStars();addEventListener('resize',initStars);
+
+function enterApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');boot();}
+function logout(){document.getElementById('app').classList.add('hidden');document.getElementById('login').classList.remove('hidden');}
+function go(s){document.querySelectorAll('.nav-item[data-s]').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
+  document.querySelectorAll('.screen').forEach(sec=>sec.classList.toggle('active',sec.id===s));
+  if(s==='telemetry')ensureTelemetry();if(s==='predictive')ensureGauges();if(s==='sensor')ensureSensor();}
+document.querySelectorAll('.nav-item[data-s]').forEach(b=>b.onclick=()=>go(b.dataset.s));
+
+let tt;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity=1;t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(tt);tt=setTimeout(()=>{t.style.opacity=0;t.style.transform='translateX(-50%) translateY(20px)';},2200);}
+
+let met=0;setInterval(()=>{met++;const h=String(Math.floor(met/3600)).padStart(2,'0'),
+  m=String(Math.floor(met%3600/60)).padStart(2,'0'),s=String(met%60).padStart(2,'0');
+  const e=document.getElementById('met');if(e)e.textContent='T+ '+h+':'+m+':'+s;},1000);
+
+const kpis=[
+  {l:'Altitude',v:412,u:'km',t:'+0.3',d:1,c:''},{l:'Velocidade',v:7.66,u:'km/s',t:'estável',d:1,c:''},
+  {l:'Energia',v:78,u:'%',t:'-2.1',d:0,c:'warn'},{l:'Temp. núcleo',v:847,u:'°C',t:'+5',d:1,c:''},
+  {l:'Sinal',v:96,u:'%',t:'+1.0',d:1,c:''},{l:'Tripulação',v:4,u:'OK',t:'nominal',d:1,c:''}];
+const subsys=[{n:'Propulsão',s:'Empuxo nominal',p:92,c:'s-nom'},{n:'Energia',s:'Banco B em alerta',p:78,c:'s-warn'},
+  {n:'Comunicação',s:'Uplink/downlink OK',p:96,c:'s-nom'},{n:'Suporte de vida',s:'O₂ e pressão OK',p:99,c:'s-nom'},
+  {n:'Navegação',s:'Drift leve no giro Z',p:88,c:'s-info'}];
+const alerts=[
+  {lv:'crit',sub:'Energia',msg:'Sobrecarga no banco de baterias B',desc:'Tensão acima do limite seguro. Redistribuição automática iniciada.',ts:'T+ 02:14:08'},
+  {lv:'crit',sub:'Propulsão',msg:'Pressão de combustível instável',desc:'Oscilação detectada na linha 2. Verificação manual recomendada.',ts:'T+ 02:09:51'},
+  {lv:'high',sub:'Comunicação',msg:'Perda intermitente de sinal',desc:'Sinal com estação de solo abaixo de 60% por 12s.',ts:'T+ 01:47:33'},
+  {lv:'high',sub:'Navegação',msg:'Drift de calibração acima do esperado',desc:'Giroscópio Z fora da tolerância em 0.4°.',ts:'T+ 01:30:02'},
+  {lv:'med',sub:'Propulsão',msg:'Temperatura do núcleo elevada',desc:'847°C, dentro da faixa mas acima da média histórica.',ts:'T+ 01:02:11'},
+  {lv:'low',sub:'Suporte de vida',msg:'Ajuste de umidade da cabine',desc:'Umidade corrigida automaticamente para 45%.',ts:'T+ 00:38:50'}];
+const sensors=[{n:'Temp. núcleo',v:847,u:'°C',c:'s-nom'},{n:'Pressão cabine',v:101.2,u:'kPa',c:'s-nom'},
+  {n:'O₂',v:20.9,u:'%',c:'s-nom'},{n:'Tensão bus A',v:28.4,u:'V',c:'s-nom'},{n:'Tensão bus B',v:24.1,u:'V',c:'s-warn'},
+  {n:'Vibração',v:0.12,u:'g',c:'s-nom'},{n:'Radiação',v:0.34,u:'mSv',c:'s-info'},{n:'Combustível',v:62,u:'%',c:'s-nom'}];
+
+function boot(){
+  document.getElementById('kpis').innerHTML=kpis.map(k=>`<div class="kpi ${k.c}"><div class="lbl">${k.l}</div>
+    <div class="val">${k.v}<u>${k.u}</u></div><div class="trend ${k.d?'up':'down'}">${k.d?'▲':'▼'} ${k.t}</div></div>`).join('');
+  document.getElementById('subsysList').innerHTML=subsys.map(s=>`<div class="sub-row">
+    <span class="statusbadge ${s.c}">●</span><div class="nm">${s.n}<small>${s.s}</small></div>
+    <div class="bar"><i style="width:${s.p}%"></i></div></div>`).join('');
+  const a=l=>`<div class="alert ${l.lv}"><div class="stripe"></div><div class="body">
+    <div class="top"><span class="statusbadge ${l.lv==='crit'?'s-crit':l.lv==='high'?'s-warn':l.lv==='med'?'s-info':'s-nom'}">${l.sub}</span>
+    <span class="ts">${l.ts}</span></div><div class="msg">${l.msg}</div><div class="desc">${l.desc}</div></div></div>`;
+  document.getElementById('alertList').innerHTML=alerts.map(a).join('');
+  document.getElementById('dashAlerts').innerHTML=alerts.slice(0,3).map(a).join('');
+  document.getElementById('alertCount').textContent=alerts.filter(x=>x.lv==='crit').length;
+  document.getElementById('sensorGrid').innerHTML=sensors.map((s,i)=>`<div class="sensor" onclick="go('sensor')">
+    <div class="nm">${s.n}</div><div class="v">${s.v}<u style="font-size:11px;color:var(--muted)"> ${s.u}</u></div>
+    <canvas class="spark" id="sp${i}"></canvas></div>`).join('');
+  sensors.forEach((s,i)=>spark('sp'+i,s.c));
+  buildDashChart();animateOrbit();buildSenTable();
+  document.querySelectorAll('#alertFilter .chip').forEach(c=>c.onclick=()=>{
+    document.querySelectorAll('#alertFilter .chip').forEach(x=>x.classList.remove('active'));c.classList.add('active');
+    const f=c.dataset.f;document.getElementById('alertList').innerHTML=alerts.filter(x=>f==='all'||x.lv===f).map(a).join('');});
+  cmdLog('SYS','Uplink estabelecido com ARTEMIS-VII','t');
+  cmdLog('SYS','Telemetria sincronizada · 247 canais ativos','ok');
+}
+
+const cOpt=()=>({responsive:true,plugins:{legend:{display:false}},
+  scales:{x:{display:false},y:{grid:{color:'#1e2533'},ticks:{color:'#525d72',font:{family:'IBM Plex Mono',size:10}}}},
+  elements:{point:{radius:0}},animation:false});
+function series(n,base,amp){return Array.from({length:n},(_,i)=>base+Math.sin(i/3)*amp+Math.random()*amp);}
+let dashChart,tempChart,powChart,senChart,telemReady=false,senReady=false,gaugesReady=false;
+function grad(ctx,col){const g=ctx.createLinearGradient(0,0,0,160);g.addColorStop(0,col+'40');g.addColorStop(1,col+'00');return g;}
+function buildDashChart(){const c=document.getElementById('dashChart').getContext('2d');
+  dashChart=new Chart(c,{type:'line',data:{labels:series(30,0,0),datasets:[
+    {data:series(30,78,4),borderColor:'#e0a23c',backgroundColor:grad(c,'#e0a23c'),fill:true,tension:.4,borderWidth:1.8},
+    {data:series(30,84,3),borderColor:'#4f8cff',backgroundColor:grad(c,'#4f8cff'),fill:true,tension:.4,borderWidth:1.8}]},options:cOpt()});}
+function ensureTelemetry(){if(telemReady)return;telemReady=true;
+  const t=document.getElementById('tempChart').getContext('2d');
+  tempChart=new Chart(t,{type:'line',data:{labels:series(40,0,0),datasets:[{data:series(40,847,8),
+    borderColor:'#e24a5d',backgroundColor:grad(t,'#e24a5d'),fill:true,tension:.4,borderWidth:1.8}]},options:cOpt()});
+  const p=document.getElementById('powChart').getContext('2d');
+  powChart=new Chart(p,{type:'line',data:{labels:series(40,0,0),datasets:[{data:series(40,5.2,.6),
+    borderColor:'#36c6b0',backgroundColor:grad(p,'#36c6b0'),fill:true,tension:.4,borderWidth:1.8}]},options:cOpt()});}
+function ensureSensor(){if(senReady)return;senReady=true;
+  const s=document.getElementById('senChart').getContext('2d');
+  senChart=new Chart(s,{type:'line',data:{labels:series(50,0,0),datasets:[{data:series(50,847,10),
+    borderColor:'#e24a5d',backgroundColor:grad(s,'#e24a5d'),fill:true,tension:.4,borderWidth:1.8}]},options:cOpt()});}
+function spark(id,c){const el=document.getElementById(id);if(!el)return;const col=c==='s-warn'?'#e0a23c':c==='s-info'?'#8a7dff':'#36c6b0';
+  new Chart(el.getContext('2d'),{type:'line',data:{labels:series(20,0,0),datasets:[{data:series(20,10,3),
+    borderColor:col,backgroundColor:'transparent',tension:.45,borderWidth:1.5}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}},elements:{point:{radius:0}},animation:false}});}
+function ensureGauges(){if(gaugesReady)return;gaugesReady=true;
+  const vals=[[8,'#3fb27f'],[34,'#e0a23c'],[5,'#3fb27f'],[3,'#3fb27f']];
+  vals.forEach((v,i)=>{new Chart(document.getElementById('gauge'+(i+1)),{type:'doughnut',
+    data:{datasets:[{data:[v[0],100-v[0]],backgroundColor:[v[1],'#1e2533'],borderWidth:0,circumference:180,rotation:270}]},
+    options:{cutout:'74%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:600}}});});}
+
+function push(ch,base,amp){if(!ch)return;ch.data.datasets.forEach(ds=>{ds.data.push(base+Math.sin(Date.now()/2000)*amp+Math.random()*amp);ds.data.shift();});ch.update('none');}
+setInterval(()=>{push(dashChart,80,4);push(tempChart,847,8);push(powChart,5.2,.6);push(senChart,847,10);
+  const e=document.querySelectorAll('#kpis .val');if(e[3])e[3].innerHTML=(845+Math.round(Math.random()*8))+'<u>°C</u>';
+  const sn=document.getElementById('senNow');if(sn)sn.innerHTML=(843+Math.round(Math.random()*10))+'<u>°C</u>';},2000);
+
+function animateOrbit(){const sat=document.getElementById('sat');if(!sat)return;let a=-1.2;
+  setInterval(()=>{a+=0.018;const x=300+Math.cos(a)*252,y=118+Math.sin(a)*82;sat.setAttribute('transform','translate('+x+','+y+')');},40);}
+
+function buildSenTable(){const tb=document.querySelector('#senTable tbody');if(!tb)return;let rows='';let prev=847;
+  for(let i=0;i<8;i++){const v=843+Math.round(Math.random()*12),d=v-prev;prev=v;
+    rows+=`<tr><td class="mono">T+ 02:${String(14-i).padStart(2,'0')}:0${i}</td><td class="mono">${v}°C</td>
+    <td class="mono ${d>=0?'up':'down'}">${d>=0?'+':''}${d}</td><td><span class="statusbadge s-nom">Nominal</span></td></tr>`;}
+  tb.innerHTML=rows;}
+
+function cmdLog(tag,msg,cls){const l=document.getElementById('cmdLog');const h=String(Math.floor(met/3600)).padStart(2,'0'),
+  m=String(Math.floor(met%3600/60)).padStart(2,'0'),s=String(met%60).padStart(2,'0');
+  l.innerHTML+=`<div><span class="t">[T+ ${h}:${m}:${s}]</span> <span class="${cls||''}">${tag} › ${msg}</span></div>`;l.scrollTop=l.scrollHeight;}
+function sendCmd(){const mod=cmdMod.value,cmd=cmdCmd.value,p=cmdParam.value;
+  cmdLog('CMD',`${cmd} → ${mod} [${p}]`,'w');
+  setTimeout(()=>cmdLog('ACK',`${mod} confirmou: ${cmd}`,'ok'),700);
+  toast('Comando transmitido a '+mod);}
+</script>
+</body>
+</html>
